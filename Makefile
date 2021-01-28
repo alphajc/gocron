@@ -18,8 +18,7 @@ run-race: enable-race run
 kill:
 	-killall gocron-node
 
-.PHONY: gocron
-gocron:
+gocron: build-vue statik
 	go build $(RACE) -o bin/gocron ./cmd/gocron
 
 .PHONY: node
@@ -45,12 +44,10 @@ package: build-vue statik
 package-all: build-vue statik
 	bash ./package.sh -p 'linux darwin windows'
 
-.PHONY: build-vue
-build-vue:
+build-vue: install-vue
 	cd web/vue && yarn run build
 	cp -r web/vue/dist/* web/public/
 
-.PHONY: install-vue
 install-vue:
 	cd web/vue && yarn install
 
@@ -58,7 +55,6 @@ install-vue:
 run-vue:
 	cd web/vue && yarn run dev
 
-.PHONY: statik
 statik:
 	go get github.com/rakyll/statik
 	go generate ./...
@@ -70,3 +66,4 @@ statik:
 clean:
 	rm bin/gocron
 	rm bin/gocron-node
+

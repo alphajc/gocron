@@ -1,37 +1,43 @@
-FROM golang:1.15-alpine as builder
+FROM golang:1.15.7-buster
 
-RUN apk update \
-    && apk add --no-cache git ca-certificates make bash yarn nodejs
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list \
+    && sed -i 's/security.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list \
+    && apt-get update -y \
+    && apt-get install -y make npm \
+    && npm install -g yarn \
+    && alias yarn=yarnpkg
 
-RUN go env -w GO111MODULE=on && \
-    go env -w GOPROXY=https://goproxy.cn,direct
+ENV GOPROXY https://goproxy.cn,direct
+ENV CGO_ENABLED 0
 
-WORKDIR /app
+ADD . /build
 
-RUN git clone https://github.com/ouqiang/gocron.git \
-    && cd gocron \
-    && yarn config set ignore-engines true \
-    && make install-vue \
-    && make build-vue \
-    && make statik \
-    && CGO_ENABLED=0 make gocron
+WORKDIR /build
 
-FROM alpine:3.12
+RUN yarn config set ignore-engines true \
+    && make gocron
 
-RUN apk add --no-cache ca-certificates tzdata \
+
+FROM alpine:3.13.0
+
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
+    && apk add --no-cache ca-certificates tzdata \
     && addgroup -S app \
     && adduser -S -g app app
 
-RUN cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+ENV LANG C.UTF-8
+ENV TZ Asia/Shanghai
 
 WORKDIR /app
 
-COPY --from=builder /app/gocron/bin/gocron .
+COPY --from=0 /build/bin/gocron .
 
 RUN chown -R app:app ./
 
-EXPOSE 5920
+EXPOSE 8080
 
 USER app
 
-ENTRYPOINT ["/app/gocron", "web"]
+ENTRYPOINT ["/app/gocron"]
+
+CMD ["web", "-p", "8080"]
